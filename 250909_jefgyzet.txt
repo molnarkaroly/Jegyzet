@@ -1,0 +1,140 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace WindowsFormsApp1
+{
+    public partial class Form1 : Form
+    {
+        public Form1()
+        {
+            InitializeComponent();
+        }
+
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+            if (textBox1.Text == "soma")
+            {
+                this.BackColor = Color.Red;
+            }
+            else
+            {
+                this.BackColor = Color.Green;
+            }
+
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            // Létrehoz egy új Label vezérlőt "kiirat" néven
+            Label kiirat = new Label();
+
+            // Beállítja a megjelenítendő szöveget
+            kiirat.Text = textBox1.Text;
+
+            // Beállítja a címke pozícióját az űrlapon
+            kiirat.Location = new Point(10, 20);
+
+            // Hozzáadja a címkét az űrlap vezérlőihez
+            this.Controls.Add(kiirat);
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+namespace konyvek
+{
+    public class Kiadasok
+    {
+        public int year;
+        public int part;
+        public string type;
+        public string desc;
+        public int count;
+
+        public Kiadasok(string line)
+        {
+            string[] strings = line.Split(';');
+            this.year = int.Parse(strings[0]);
+            this.part = int.Parse(strings[1]);
+            this.type = strings[2];
+            this.desc = strings[3];
+            this.count = int.Parse(strings[4]);
+        }
+    }
+    internal class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.WriteLine("1. Feladat");
+            List<Kiadasok> kiadasok = new List<Kiadasok>();
+
+            StreamReader sr = new StreamReader("kiadas.txt", Encoding.UTF8);
+
+            while (!sr.EndOfStream)
+            {
+                Kiadasok tmp = new Kiadasok(sr.ReadLine()); { kiadasok.Add(tmp); }
+            }
+
+            sr.Close();
+
+            if (kiadasok.Count > 0) { Console.WriteLine("\t" + kiadasok.Count + " adat sikeresen beolvasva!"); } else { Console.WriteLine("\tSikertelen adatbeolvasás)"); }
+
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
