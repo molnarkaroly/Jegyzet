@@ -1,0 +1,218 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using MySql.Data.MySqlClient;
+
+namespace ConsoleApp2
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            // Csatlakozási adatok az AMPPS MySQL szerveréhez
+            string connectionString = "Server=localhost;Database=pizza;Uid=root;Pwd=mysql;";
+
+            try
+            {
+                Console.WriteLine("Csatlakozás a 'pizza' adatbázishoz...");
+
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                {
+                    connection.Open();
+                    Console.WriteLine("Sikeres csatlakozás!\n");
+
+                    // Lekérdezések listája
+                    LekerdezesFuttatasa(connection, "1. Hogy hívják az egyes pizzafutárokat?",
+                        "SELECT Fnev FROM Futar;");
+
+                    LekerdezesFuttatasa(connection, "2. Milyen pizzák közül lehet rendelni, és mennyibe kerülnek?",
+                        "SELECT Pnev, Par FROM Pizza;");
+
+                    LekerdezesFuttatasa(connection, "3. Mennyibe kerül átlagosan egy pizza?",
+                        "SELECT AVG(Par) AS AtlagAr FROM Pizza;");
+
+                    LekerdezesFuttatasa(connection, "4. Mely pizzák olcsóbbak 1000 Ft-nál?",
+                        "SELECT Pnev FROM Pizza WHERE Par < 1000;");
+
+                    LekerdezesFuttatasa(connection, "5. Ki szállította házhoz az első (1-es sorszámú) rendelést?",
+                        "SELECT Fnev FROM Futar JOIN Rendeles ON Futar.Fazon = Rendeles.Fazon WHERE Razon = 1;");
+
+                    LekerdezesFuttatasa(connection, "6. Kik rendeltek pizzát délelőtt? (12 óra előtt)",
+                        "SELECT DISTINCT Vnev FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon WHERE HOUR(Idopont) < 12;");
+
+                    LekerdezesFuttatasa(connection, "7. Milyen pizzákat evett Morgó?",
+                        "SELECT DISTINCT Pnev FROM Pizza JOIN Tetel ON Pizza.Pazon = Tetel.Pazon JOIN Rendeles ON Tetel.Razon = Rendeles.Razon JOIN Vevo ON Rendeles.Vazon = Vevo.Vazon WHERE Vnev = 'Morgó';");
+
+                    LekerdezesFuttatasa(connection, "8. Ki szállított házhoz Tudornak?",
+                        "SELECT DISTINCT Fnev FROM Futar JOIN Rendeles ON Futar.Fazon = Rendeles.Fazon JOIN Vevo ON Rendeles.Vazon = Vevo.Vazon WHERE Vnev = 'Tudor';");
+
+                    LekerdezesFuttatasa(connection, "9. Az egyes rendelések alkalmával ki kinek szállított házhoz?",
+                        "SELECT Razon, Fnev AS Futár, Vnev AS Vevő FROM Rendeles JOIN Futar ON Rendeles.Fazon = Futar.Fazon JOIN Vevo ON Rendeles.Vazon = Vevo.Vazon;");
+
+                    LekerdezesFuttatasa(connection, "10. Mennyit költött pizzára Vidor?",
+                        "SELECT SUM(Par * Db) AS Osszesen FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon JOIN Pizza ON Tetel.Pazon = Pizza.Pazon WHERE Vnev = 'Vidor';");
+
+                    LekerdezesFuttatasa(connection, "11. Hány alkalommal rendelt Sorrento pizzát Kuka?",
+                        "SELECT COUNT(*) FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon JOIN Pizza ON Tetel.Pazon = Pizza.Pazon WHERE Vnev = 'Kuka' AND Pnev = 'Sorrento';");
+
+                    LekerdezesFuttatasa(connection, "12. Hány pizzát evett Szende?",
+                        "SELECT SUM(Db) FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon WHERE Vnev = 'Szende';");
+
+                    LekerdezesFuttatasa(connection, "13. Hányszor rendelt pizzát Hapci?",
+                        "SELECT COUNT(*) FROM Rendeles JOIN Vevo ON Rendeles.Vazon = Vevo.Vazon WHERE Vnev = 'Hapci';");
+
+                    LekerdezesFuttatasa(connection, "14. Hány darab Hawaii pizza fogyott összesen?",
+                        "SELECT SUM(Db) FROM Tetel JOIN Pizza ON Tetel.Pazon = Pizza.Pazon WHERE Pnev = 'Hawaii';");
+
+                    LekerdezesFuttatasa(connection, "15. Mennyit költöttek pizzára az egyes vevők?",
+                        "SELECT Vnev, SUM(Par * Db) FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon JOIN Pizza ON Tetel.Pazon = Pizza.Pazon GROUP BY Vnev;");
+
+                    LekerdezesFuttatasa(connection, "16. Mennyit vettek az egyes vevők a különböző pizzákból?",
+                        "SELECT Vnev, Pnev, SUM(Db) FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon JOIN Pizza ON Tetel.Pazon = Pizza.Pazon GROUP BY Vnev, Pnev;");
+
+                    LekerdezesFuttatasa(connection, "17. Ki hány pizzát szállított házhoz az egyes napokon?",
+                        "SELECT Fnev, DATE(Idopont), SUM(Db) FROM Futar JOIN Rendeles ON Futar.Fazon = Rendeles.Fazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon GROUP BY Fnev, DATE(Idopont);");
+
+                    LekerdezesFuttatasa(connection, "18. Ki hány pizzát rendelt az egyes napokon?",
+                        "SELECT Vnev, DATE(Idopont), SUM(Db) FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon GROUP BY Vnev, DATE(Idopont);");
+
+                    LekerdezesFuttatasa(connection, "19. Mennyi volt a bevétel az egyes napokon?",
+                        "SELECT DATE(Idopont), SUM(Par * Db) FROM Pizza JOIN Tetel ON Pizza.Pazon = Tetel.Pazon JOIN Rendeles ON Tetel.Razon = Rendeles.Razon GROUP BY DATE(Idopont);");
+
+                    LekerdezesFuttatasa(connection, "20. Hány pizza fogyott naponta?",
+                        "SELECT DATE(Idopont), SUM(Db) FROM Rendeles JOIN Tetel ON Rendeles.Razon = Tetel.Razon GROUP BY DATE(Idopont);");
+
+                    LekerdezesFuttatasa(connection, "21. Mennyi pizza fogyott átlagosan naponta?",
+                        "SELECT AVG(NapiSum) FROM (SELECT SUM(Db) AS NapiSum FROM Rendeles JOIN Tetel ON Rendeles.Razon = Tetel.Razon GROUP BY DATE(Idopont)) AS Seged;");
+
+                    LekerdezesFuttatasa(connection, "22. Hány pizzát rendeltek átlagosan egyszerre?",
+                        "SELECT AVG(Db) FROM Tetel;");
+
+                    LekerdezesFuttatasa(connection, "23. Hány házhoz szállítása volt az egyes futároknak?",
+                        "SELECT Fnev, COUNT(*) FROM Futar JOIN Rendeles ON Futar.Fazon = Rendeles.Fazon GROUP BY Fnev;");
+
+                    LekerdezesFuttatasa(connection, "24. A fogyasztás alapján mi a pizzák népszerűségi sorrendje?",
+                        "SELECT Pnev, SUM(Db) AS Ossz FROM Pizza JOIN Tetel ON Pizza.Pazon = Tetel.Pazon GROUP BY Pnev ORDER BY Ossz DESC;");
+
+                    LekerdezesFuttatasa(connection, "25. A rendelések összértéke alapján mi a vevők sorrendje?",
+                        "SELECT Vnev, SUM(Par * Db) AS Ossz FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon JOIN Pizza ON Tetel.Pazon = Pizza.Pazon GROUP BY Vnev ORDER BY Ossz DESC;");
+
+                    LekerdezesFuttatasa(connection, "26. Melyik a legdrágább pizza?",
+                        "SELECT Pnev, Par FROM Pizza WHERE Par = (SELECT MAX(Par) FROM Pizza);");
+
+                    LekerdezesFuttatasa(connection, "27. Ki szállította házhoz a legtöbb pizzát?",
+                        "SELECT Fnev, SUM(Db) AS Ossz FROM Futar JOIN Rendeles ON Futar.Fazon = Rendeles.Fazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon GROUP BY Fnev ORDER BY Ossz DESC LIMIT 1;");
+
+                    LekerdezesFuttatasa(connection, "28. Ki ette a legtöbb pizzát?",
+                        "SELECT Vnev, SUM(Db) AS Ossz FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon GROUP BY Vnev ORDER BY Ossz DESC LIMIT 1;");
+
+                    LekerdezesFuttatasa(connection, "29. Melyik nap fogyott a legtöbb pizza?",
+                        "SELECT DATE(Idopont), SUM(Db) AS Ossz FROM Rendeles JOIN Tetel ON Rendeles.Razon = Tetel.Razon GROUP BY DATE(Idopont) ORDER BY Ossz DESC LIMIT 1;");
+
+                    LekerdezesFuttatasa(connection, "30. Melyik nap fogyott a legtöbb Hawaii pizza?",
+                        "SELECT DATE(Idopont), SUM(Db) AS Ossz FROM Rendeles JOIN Tetel ON Rendeles.Razon = Tetel.Razon JOIN Pizza ON Tetel.Pazon = Pizza.Pazon WHERE Pnev = 'Hawaii' GROUP BY DATE(Idopont) ORDER BY Ossz DESC LIMIT 1;");
+
+                    LekerdezesFuttatasa(connection, "31. Hány pizza fogyott a legforgalmasabb napon?",
+                        "SELECT SUM(Db) AS Ossz FROM Rendeles JOIN Tetel ON Rendeles.Razon = Tetel.Razon GROUP BY DATE(Idopont) ORDER BY Ossz DESC LIMIT 1;");
+
+                    LekerdezesFuttatasa(connection, "32. Mennyi volt a bevétel a legjobb napon?",
+                        "SELECT SUM(Par * Db) AS Ossz FROM Rendeles JOIN Tetel ON Rendeles.Razon = Tetel.Razon JOIN Pizza ON Tetel.Pazon = Pizza.Pazon GROUP BY DATE(Idopont) ORDER BY Ossz DESC LIMIT 1;");
+
+                    LekerdezesFuttatasa(connection, "33. Mi Szundi kedvenc pizzája?",
+                        "SELECT Pnev FROM Pizza JOIN Tetel ON Pizza.Pazon = Tetel.Pazon JOIN Rendeles ON Tetel.Razon = Rendeles.Razon JOIN Vevo ON Rendeles.Vazon = Vevo.Vazon WHERE Vnev = 'Szundi' GROUP BY Pnev ORDER BY SUM(Db) DESC LIMIT 1;");
+
+                    LekerdezesFuttatasa(connection, "34. Kik rendeltek pizzát a nyitás napján?",
+                        "SELECT DISTINCT Vnev FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon WHERE DATE(Idopont) = (SELECT MIN(DATE(Idopont)) FROM Rendeles);");
+
+                    LekerdezesFuttatasa(connection, "35. Mely pizzák olcsóbbak a Capricciosa pizzánál?",
+                        "SELECT Pnev FROM Pizza WHERE Par < (SELECT Par FROM Pizza WHERE Pnev = 'Capricciosa');");
+
+                    LekerdezesFuttatasa(connection, "36. Mely pizzák drágábbak az átlagosnál?",
+                        "SELECT Pnev FROM Pizza WHERE Par > (SELECT AVG(Par) FROM Pizza);");
+
+                    LekerdezesFuttatasa(connection, "37. Mely pizza ára van legközelebb az átlagárhoz?",
+                        "SELECT Pnev FROM Pizza ORDER BY ABS(Par - (SELECT AVG(Par) FROM Pizza)) LIMIT 1;");
+
+                    LekerdezesFuttatasa(connection, "38. Mely futárok mentek többet házhoz az átlagosnál?",
+                        "SELECT Fnev FROM Futar JOIN Rendeles ON Futar.Fazon = Rendeles.Fazon GROUP BY Fnev HAVING COUNT(*) > (SELECT COUNT(*) / COUNT(DISTINCT Fazon) FROM Rendeles);");
+
+                    LekerdezesFuttatasa(connection, "39. Kik rendeltek legalább háromszor annyi pizzát, mint egy átlagos vevő?",
+                        "SELECT Vnev FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon GROUP BY Vnev HAVING SUM(Db) >= 3 * (SELECT SUM(Db) / COUNT(DISTINCT Vazon) FROM Tetel JOIN Rendeles ON Tetel.Razon = Rendeles.Razon);");
+
+                    LekerdezesFuttatasa(connection, "40. Kik szállítottak házhoz legalább tízszer?",
+                        "SELECT Fnev FROM Futar JOIN Rendeles ON Futar.Fazon = Rendeles.Fazon GROUP BY Fnev HAVING COUNT(*) >= 10;");
+
+                    LekerdezesFuttatasa(connection, "41. Mely pizzából fogyott legalább 50 db?",
+                        "SELECT Pnev FROM Pizza JOIN Tetel ON Pizza.Pazon = Tetel.Pazon GROUP BY Pnev HAVING SUM(Db) >= 50;");
+
+                    LekerdezesFuttatasa(connection, "42. Mely vevők nem rendeltek legalább háromszor?",
+                        "SELECT Vnev FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon GROUP BY Vnev HAVING COUNT(*) < 3;");
+
+                    LekerdezesFuttatasa(connection, "43. Kik rendeltek legalább 5 Hawaii pizzát?",
+                        "SELECT Vnev FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon JOIN Pizza ON Tetel.Pazon = Pizza.Pazon WHERE Pnev = 'Hawaii' GROUP BY Vnev HAVING SUM(Db) >= 5;");
+
+                    LekerdezesFuttatasa(connection, "44. Milyen pizzából nem rendelt soha Tudor?",
+                        "SELECT Pnev FROM Pizza WHERE Pazon NOT IN (SELECT Pazon FROM Tetel JOIN Rendeles ON Tetel.Razon = Rendeles.Razon JOIN Vevo ON Rendeles.Vazon = Vevo.Vazon WHERE Vnev = 'Tudor');");
+
+                    LekerdezesFuttatasa(connection, "45. Van-e olyan pizza, amelyből soha nem rendeltek?",
+                        "SELECT Pnev FROM Pizza LEFT JOIN Tetel ON Pizza.Pazon = Tetel.Pazon WHERE Tetel.Pazon IS NULL;");
+
+                    LekerdezesFuttatasa(connection, "46. Ki nem rendelt soha Vesuvio pizzát?",
+                        "SELECT Vnev FROM Vevo WHERE Vazon NOT IN (SELECT Vazon FROM Rendeles JOIN Tetel ON Rendeles.Razon = Tetel.Razon JOIN Pizza ON Tetel.Pazon = Pizza.Pazon WHERE Pnev = 'Vesuvio');");
+
+                    LekerdezesFuttatasa(connection, "47. Mely pizzafutárokkal nem találkoztak az egyes vevők?",
+                        "SELECT Vnev, Fnev FROM Vevo CROSS JOIN Futar WHERE (Vazon, Fazon) NOT IN (SELECT Vazon, Fazon FROM Rendeles);");
+
+                    LekerdezesFuttatasa(connection, "48. Kik rendeltek több Sorrento pizzát, mint Vesuviot?",
+                        "SELECT Vnev FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon JOIN Pizza ON Tetel.Pazon = Pizza.Pazon GROUP BY Vnev HAVING SUM(IF(Pnev='Sorrento', Db, 0)) > SUM(IF(Pnev='Vesuvio', Db, 0));");
+
+                    LekerdezesFuttatasa(connection, "49. Kik rendeltek legalább 5 Capricciosa vagy 8 Frutti di Mare pizzát?",
+                        "SELECT Vnev FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon JOIN Pizza ON Tetel.Pazon = Pizza.Pazon GROUP BY Vnev HAVING SUM(IF(Pnev='Capricciosa', Db, 0)) >= 5 OR SUM(IF(Pnev='Frutti di Mare', Db, 0)) >= 8;");
+
+                    LekerdezesFuttatasa(connection, "50. Kik rendeltek kétfajta pizzából is legalább 10 darabot?",
+                        "SELECT Vnev FROM Vevo JOIN Rendeles ON Vevo.Vazon = Rendeles.Vazon JOIN Tetel ON Rendeles.Razon = Tetel.Razon GROUP BY Vnev HAVING SUM(IF(Db >= 10, 1, 0)) >= 2;");
+
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Hiba történt a csatlakozás során: " + ex.Message);
+            }
+
+            Console.WriteLine("\nA kilépéshez nyomj meg egy gombot...");
+            Console.ReadKey();
+        }
+
+        /// <summary>
+        /// Ez a függvény végrehajtja az SQL lekérdezést és kiírja az eredményt.
+        /// </summary>
+        static void LekerdezesFuttatasa(MySqlConnection conn, string kerdes, string sql)
+        {
+            Console.WriteLine(new string('-', 30));
+            Console.WriteLine(kerdes);
+            Console.WriteLine("SQL: " + sql);
+
+            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            {
+                using (MySqlDataReader reader = cmd.ExecuteReader())
+                {
+                    bool vanAdat = false;
+                    while (reader.Read())
+                    {
+                        vanAdat = true;
+                        string sor = "";
+                        for (int i = 0; i < reader.FieldCount; i++)
+                        {
+                            sor += reader.GetValue(i).ToString() + "\t";
+                        }
+                        Console.WriteLine(sor);
+                    }
+                    if (!vanAdat) Console.WriteLine("(Nincs találat)");
+                }
+            }
+            Console.WriteLine();
+        }
+    }
+}
