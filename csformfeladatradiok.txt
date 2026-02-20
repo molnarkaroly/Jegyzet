@@ -1,0 +1,114 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Windows.Forms;
+using MySql.Data.MySqlClient;
+
+namespace RadioAdokWinForms
+{
+    public partial class Form1 : Form
+    {
+        // Csatlakozási karakterlánc
+        string connectionString = "Server=localhost;Database=radioadok;Uid=root;Pwd=mysql;Charset=utf8;";
+
+        public Form1()
+        {
+            InitializeComponent();
+            InitializeCombo();
+        }
+
+        private void InitializeCombo()
+        {
+            cbFeladatok.Items.Add("2. Budapesti adók helyszínei");
+            cbFeladatok.Items.Add("3. Miskolci adók (teljesítmény szerint)");
+            cbFeladatok.Items.Add("4. Kossuth Rádió régiónként");
+            cbFeladatok.Items.Add("5. Településnevet tartalmazó csatornák");
+            cbFeladatok.Items.Add("6. Hiányzó nevek listázása és javítása");
+            cbFeladatAdd("7. Megyei statisztika (Írd be a megyét!)");
+            cbFeladatok.Items.Add("8. Csak helyi adást sugárzó települések");
+            cbFeladatok.Items.Add("9. Legnagyobb teljesítményű adó");
+            cbFeladatok.Items.Add("10. Adóval rendelkező városok száma régiónként");
+            cbFeladatok.SelectedIndex = 0;
+        }
+
+        private void btnFuttat_Click(object sender, EventArgs e)
+        {
+            int index = cbFeladatok.SelectedIndex + 2; // A 2. feladattól indulunk
+            DataTable dt = new DataTable();
+
+            try
+            {
+                using (MySqlConnection conn = new MySqlConnection(connectionString))
+                {
+                    conn.Open();
+                    string sql = "";
+                    MySqlCommand cmd = new MySqlCommand();
+                    cmd.Connection = conn;
+
+                    switch (index)
+                    {
+                        case 2:
+                            sql = "SELECT DISTINCT cim AS 'Helyszín' FROM kiosztas WHERE adohely = 'Budapest';";
+                            break;
+                        case 3:
+                            sql = "SELECT csatorna AS 'Csatorna', teljesitmeny AS 'kW' FROM kiosztas WHERE adohely = 'Miskolc' ORDER BY teljesitmeny DESC;";
+                            break;
+                        case 4:
+                            sql = "SELECT regio.nev AS 'Régió', COUNT(*) AS 'Adók száma' FROM kiosztas " +
+                                  "JOIN telepules ON kiosztas.adohely = telepules.nev " +
+                                  "JOIN regio ON telepules.megye = regio.megye " +
+                                  "WHERE csatorna = 'MR1-Kossuth Rádió' GROUP BY regio.nev;";
+                            break;
+                        case 5:
+                            sql = "SELECT csatorna FROM kiosztas WHERE csatorna LIKE CONCAT('%', adohely, '%');";
+                            break;
+                        case 6:
+                            // Előbb javítunk, aztán listázunk
+                            string updateSql = "UPDATE kiosztas SET csatorna = 'nincs adat' WHERE csatorna IS NULL OR csatorna = '';";
+                            new MySqlCommand(updateSql, conn).ExecuteNonQuery();
+                            MessageBox.Show("Üres nevek frissítve 'nincs adat'-ra!");
+                            sql = "SELECT * FROM kiosztas WHERE csatorna = 'nincs adat';";
+                            break;
+                        case 7:
+                            if (string.IsNullOrEmpty(txtInput.Text)) { 
+                                MessageBox.Show("Kérlek írj be egy megyét!"); return; 
+                            }
+                            sql = "SELECT " +
+                                  "SUM(IF(teljesitmeny <= 0.1, 1, 0)) AS 'Helyi (<=0.1kW)', " +
+                                  "SUM(IF(teljesitmeny > 0.1 AND teljesitmeny < 1, 1, 0)) AS 'Térségi', " +
+                                  "SUM(IF(teljesitmeny >= 1, 1, 0)) AS 'Országos' " +
+                                  "FROM kiosztas JOIN telepules ON kiosztas.adohely = telepules.nev " +
+                                  "WHERE megye = @megye;";
+                            cmd.Parameters.AddWithValue("@megye", txtInput.Text);
+                            break;
+                        case 8:
+                            sql = "SELECT DISTINCT adohely AS 'Település' FROM kiosztas " +
+                                  "WHERE adohely NOT IN (SELECT adohely FROM kiosztas WHERE teljesitmeny > 0.1);";
+                            break;
+                        case 9:
+                            sql = "SELECT csatorna, adohely, cim, teljesitmeny FROM kiosztas " +
+                                  "WHERE teljesitmeny = (SELECT MAX(teljesitmeny) FROM kiosztas);";
+                            break;
+                        case 10:
+                            sql = "SELECT regio.nev AS 'Régió', COUNT(DISTINCT adohely) AS 'Városok száma' FROM kiosztas " +
+                                  "JOIN telepules ON kiosztas.adohely = telepules.nev " +
+                                  "JOIN regio ON telepules.megye = regio.megye " +
+                                  "GROUP BY regio.nev;";
+                            break;
+                    }
+
+                    cmd.CommandText = sql;
+                    MySqlDataAdapter adapter = new MySqlDataAdapter(cmd);
+                    adapter.Fill(dt);
+                    dgvAdatok.DataSource = dt;
+                    
+                    if (dt.Rows.Count == 0) MessageBox.Show("Nincs találat a megadott feltételre.");
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Hiba: " + ex.Message);
+            }
+        }
+    }
+}
