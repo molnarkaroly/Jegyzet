@@ -1,0 +1,137 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using MySql.Data.MySqlClient;
+
+namespace RadioAdokConsole
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            // Csatlakozási adatok a radioadok adatbázishoz
+            string connectionString = "Server=localhost;Database=radioadok;Uid=root;Pwd=mysql;Charset=utf8;";
+
+            try
+            {
+                using (MySqlConnection connection = new MySqlConnection(connectionString))
+                {
+                    connection.Open();
+                    Console.WriteLine("Sikeres csatlakozás a 'radioadok' adatbázishoz!\n");
+
+                    // 2. feladat: Budapesti adók helyszínei (egyedi)
+                    LekerdezesFuttatasa(connection, "2. Budapesti adók sugárzási helyei:",
+                        "SELECT DISTINCT cim FROM kiosztas WHERE adohely = 'Budapest';");
+
+                    // 3. feladat: Miskolci adók és teljesítményük csökkenőben
+                    LekerdezesFuttatasa(connection, "3. Miskolci csatornák és teljesítményük:",
+                        "SELECT csatorna, teljesitmeny FROM kiosztas WHERE adohely = 'Miskolc' ORDER BY teljesitmeny DESC;");
+
+                    // 4. feladat: Kossuth Rádió adók száma régiónként
+                    LekerdezesFuttatasa(connection, "4. Kossuth Rádió adók száma régiónként:",
+                        "SELECT regio.nev, COUNT(*) FROM kiosztas " +
+                        "JOIN telepules ON kiosztas.adohely = telepules.nev " +
+                        "JOIN regio ON telepules.megye = regio.megye " +
+                        "WHERE csatorna = 'MR1-Kossuth Rádió' GROUP BY regio.nev;");
+
+                    // 5. feladat: Csatornák, amik tartalmazzák a település nevét
+                    LekerdezesFuttatasa(connection, "5. Csatornák, amik tartalmazzák a településük nevét:",
+                        "SELECT csatorna FROM kiosztas WHERE csatorna LIKE CONCAT('%', adohely, '%');");
+
+                    // 6. feladat: Hiányzó csatornanevek és módosítás
+                    LekerdezesFuttatasa(connection, "6/a. Hiányzó csatornanévvel rendelkező rekordok:",
+                        "SELECT * FROM kiosztas WHERE csatorna IS NULL OR csatorna = '';");
+
+                    ModositoLekerdezes(connection, "6/b. Hiányzó nevek pótlása 'nincs adat' szöveggel...",
+                        "UPDATE kiosztas SET csatorna = 'nincs adat' WHERE csatorna IS NULL OR csatorna = '';");
+
+                    // 7. feladat: Adókategóriák megyénként (Interaktív)
+                    Console.Write("7. Adjon meg egy megyét az adók statisztikájához: ");
+                    string megyeInput = Console.ReadLine();
+                    string sql7 = "SELECT " +
+                                  "SUM(IF(teljesitmeny <= 0.1, 1, 0)) AS Helyi, " +
+                                  "SUM(IF(teljesitmeny > 0.1 AND teljesitmeny < 1, 1, 0)) AS Tersegi, " +
+                                  "SUM(IF(teljesitmeny >= 1, 1, 0)) AS Orszagos " +
+                                  "FROM kiosztas JOIN telepules ON kiosztas.adohely = telepules.nev " +
+                                  "WHERE megye = @megye;";
+                    
+                    using (MySqlCommand cmd = new MySqlCommand(sql7, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@megye", megyeInput);
+                        using (MySqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            Console.WriteLine($"Eredmények {megyeInput} megyében:");
+                            if (reader.Read())
+                            {
+                                Console.WriteLine($"Helyi: {reader["Helyi"]}, Térségi: {reader["Tersegi"]}, Országos: {reader["Orszagos"]}");
+                            }
+                        }
+                    }
+                    Console.WriteLine();
+
+                    // 8. feladat: Települések, ahol CSAK helyi adás van (<= 0.1 kW)
+                    LekerdezesFuttatasa(connection, "8. Települések, ahonnan csak helyi adást sugároznak:",
+                        "SELECT DISTINCT adohely FROM kiosztas " +
+                        "WHERE adohely NOT IN (SELECT adohely FROM kiosztas WHERE teljesitmeny > 0.1);");
+
+                    // 9. feladat: Legnagyobb teljesítményű adó adatai
+                    LekerdezesFuttatasa(connection, "9. A legnagyobb teljesítménnyel sugárzott adó adatai:",
+                        "SELECT csatorna, adohely, cim, teljesitmeny FROM kiosztas " +
+                        "WHERE teljesitmeny = (SELECT MAX(teljesitmeny) FROM kiosztas);");
+
+                    // 10. feladat: Régiónként hány olyan település van, ahonnan sugároznak
+                    LekerdezesFuttatasa(connection, "10. Régiónkénti adóállomással rendelkező települések száma:",
+                        "SELECT regio.nev, COUNT(DISTINCT adohely) FROM kiosztas " +
+                        "JOIN telepules ON kiosztas.adohely = telepules.nev " +
+                        "JOIN regio ON telepules.megye = regio.megye " +
+                        "GROUP BY regio.nev;");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Hiba történt: " + ex.Message);
+            }
+
+            Console.WriteLine("\nA kilépéshez nyomjon meg egy gombot...");
+            Console.ReadKey();
+        }
+
+        static void LekerdezesFuttatasa(MySqlConnection conn, string kerdes, string sql)
+        {
+            Console.WriteLine(new string('-', 40));
+            Console.WriteLine(kerdes);
+            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            {
+                using (MySqlDataReader reader = cmd.ExecuteReader())
+                {
+                    bool vanAdat = false;
+                    while (reader.Read())
+                    {
+                        vanAdat = true;
+                        string sor = "";
+                        for (int i = 0; i < reader.FieldCount; i++)
+                        {
+                            sor += reader.GetValue(i).ToString() + " | ";
+                        }
+                        Console.WriteLine(sor);
+                    }
+                    if (!vanAdat) Console.WriteLine("(Nincs találat)");
+                }
+            }
+            Console.WriteLine();
+        }
+
+        static void ModositoLekerdezes(MySqlConnection conn, string uzenet, string sql)
+        {
+            Console.WriteLine(uzenet);
+            using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+            {
+                int erintettSorok = cmd.ExecuteNonQuery();
+                Console.WriteLine($"{erintettSorok} sor módosítva.");
+            }
+            Console.WriteLine();
+        }
+    }
+}
